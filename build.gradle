@@ -1,0 +1,65 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'idea'
+}
+
+group = "io.github.squid233"
+version = "0.1.0"
+
+repositories {
+    mavenCentral()
+    maven { url 'https://maven.aliyun.com/repository/central' }
+    // temporary maven repositories
+    maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+    maven { url 'https://s01.oss.sonatype.org/content/repositories/releases' }
+    maven { url 'https://s01.oss.sonatype.org/content/repositories/snapshots' }
+}
+
+dependencies {
+    compileOnly "org.jetbrains:annotations:24.0.1"
+    implementation "io.github.over-run:unifont:15.0.01.2"
+}
+
+def targetJavaVersion = 17
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        options.release.set(targetJavaVersion)
+    }
+}
+
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion.set(JavaLanguageVersion.of(targetJavaVersion))
+    }
+    archivesBaseName = "mc-glyph-gen"
+    withSourcesJar()
+}
+
+jar {
+    manifestContentCharset 'utf-8'
+    metadataCharset 'utf-8'
+    from 'LICENSE'
+    manifest.attributes(
+        'Specification-Title': "mc-glyph-gen",
+        'Specification-Vendor': "squid233",
+        'Specification-Version': '0',
+        'Implementation-Title': "mc-glyph-gen",
+        'Implementation-Vendor': "squid233",
+        'Implementation-Version': archiveVersion
+    )
+}
+
+sourcesJar {
+    dependsOn classes
+    archiveClassifier.set 'sources'
+    from sourceSets.main.allSource, 'LICENSE'
+}
+
+application {
+    mainClass.set 'io.github.squid233.mcglyphgen.Generator'
+}
+
+idea.module.inheritOutputDirs = true

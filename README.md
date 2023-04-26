@@ -1,2 +1,3 @@
 # mc-glyph-gen
-Glypg generator of Minecraft maps
+
+Glyph generator of Minecraft maps.
