@@ -35,20 +35,24 @@ public final class Generator {
     public static void main(String[] args) throws IOException {
         // TODO: GUI
         if (args.length == 0) {
-            System.out.println("""
+            final StringBuilder sb = new StringBuilder(512);
+            sb.append("""
                 Usage:
                 java -jar gen.jar [<option>...] <character> [output-file]
                 java -jar gen.jar --default <name> <value> [[<name> <value>] ...]
 
-                Options:""");
-            final StringBuilder sb = new StringBuilder(256);
+                Options:
+                """);
             for (Entry entry : entries) {
-                sb.append("  --").append(entry.name()).append(" <value");
+                sb.append("  -").append(entry.name()).append(" <value");
                 final String defaultValue = entry.defaultValue();
                 if (defaultValue != null) {
                     sb.append('=').append(defaultValue);
                 }
                 sb.append(">: ").append(entry.description()).append('\n');
+                for (String alias : entry.aliases()) {
+                    sb.append("   -").append(alias).append('\n');
+                }
             }
             System.out.print(sb);
             return;
@@ -84,15 +88,20 @@ public final class Generator {
         for (int i = 0; i < args.length; i++) {
             final String arg = args[i];
             // define option
-            if (arg.startsWith("--")) {
+            if (arg.startsWith("-")) {
                 if ((i % 2) == 0) {
-                    option = arg.substring(2);
+                    option = arg.substring(1);
                 }
             } else {
                 // defining option
                 if (option != null) {
                     // this will not be stored
-                    properties.setProperty(option, arg);
+                    final Entry entry = fromName(option);
+                    if (entry == null) {
+                        System.err.println("Unrecognized option: -" + option);
+                        return;
+                    }
+                    putEntry(entry, arg);
                     option = null;
                 }
                 // last arguments
@@ -104,15 +113,18 @@ public final class Generator {
             }
         }
 
+        if (option != null) {
+            System.err.println("Please specify the value for the given option");
+        }
         if (codePoint < 0) {
-            System.out.println("Please specify the character");
+            System.err.println("Please specify the character");
             return;
         }
 
         // generate
         if (!(containsEntry(EX0) && containsEntry(EY) && containsEntry(EZ0) &&
             containsEntry(EX1) && containsEntry(EZ1))) {
-            System.out.println("Please specify the range of the glyph");
+            System.err.println("Please specify the range of the glyph");
             return;
         }
 
@@ -127,9 +139,14 @@ public final class Generator {
         final StringBuilder sb = new StringBuilder(512);
 
         // background
-        sb.append("fill ").append(x0 * CHUNK_SIZE).append(' ').append(y).append();
-        sb.append(String.format("fill %d %d %d %d %d %d %s", x0 * CHUNK_SIZE, y, z0 * CHUNK_SIZE,
-            (x1 + 1) * CHUNK_SIZE - 1, y, (z1 + 1) * CHUNK_SIZE - 1, bg)).append('\n');
+        sb.append("fill ")
+            .append(x0 * CHUNK_SIZE).append(' ')
+            .append(y).append(' ')
+            .append(z0 * CHUNK_SIZE).append(' ')
+            .append((x1 + 1) * CHUNK_SIZE - 1).append(' ')
+            .append(y).append(' ')
+            .append((z1 + 1) * CHUNK_SIZE - 1).append(' ')
+            .append(bg).append('\n');
 
         // foreground
         boolean isBmp = codePoint <= 0xffff;
@@ -144,10 +161,18 @@ public final class Generator {
         for (int x = 0, w = Math.min(UnifontUtil.xAdvance(codePoint), (x1 - x0) * 2); x < w; x++) {
             for (int by = 0, h = Math.min(UnifontUtil.yAdvance(), (z1 - z0) * 2); by < h; by++) {
                 if (image.getRGB(x + xo, by + yo) == 0xffffffff) {
-                    System.out.printf("fill %d %d %d %d %d %d %s%n", x0 * CHUNK_SIZE + x * PIXEL_SIZE, y, z0 * CHUNK_SIZE + by * PIXEL_SIZE,
-                        x0 * CHUNK_SIZE + (x + 1) * PIXEL_SIZE - 1, y, z0 * CHUNK_SIZE + (by + 1) * PIXEL_SIZE - 1, fg);
+                    sb.append("fill ")
+                        .append(x0 * CHUNK_SIZE + x * PIXEL_SIZE).append(' ')
+                        .append(y).append(' ')
+                        .append(z0 * CHUNK_SIZE + by * PIXEL_SIZE).append(' ')
+                        .append(x0 * CHUNK_SIZE + (x + 1) * PIXEL_SIZE - 1).append(' ')
+                        .append(y).append(' ')
+                        .append(z0 * CHUNK_SIZE + (by + 1) * PIXEL_SIZE - 1).append(' ')
+                        .append(fg).append('\n');
                 }
             }
         }
+
+        System.out.print(sb);
     }
 }
